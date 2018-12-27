@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import psutil
 from flask import Flask, jsonify, abort, make_response, request
 from flask.ext.sqlalchemy import SQLAlchemy
 import os
@@ -17,6 +18,9 @@ def root_dir():
     return os.path.abspath(os.path.dirname(__file__))
 
 
+pool = Pool(processes=4)
+
+
 @app.route('/api/search', methods=['POST'])
 def getSearchResult():
     if not request.json or 'arabicText' not in request.json:
@@ -30,6 +34,27 @@ def getSearchResult():
             translation = 'en-hilali'
 
         result = getResult(value, translation)
+        process = psutil.Process(os.getpid())
+        print(process.memory_info().rss)
+    except Exception:
+        print traceback.format_exc()
+        abort(500)
+    return jsonify({'result': result})
+
+
+@app.route('/api/searchmp', methods=['POST'])
+def getSearchResultMp():
+    if not request.json or 'arabicText' not in request.json:
+        abort(400)
+    try:
+        value = request.json['arabicText']
+
+        if 'translation' in request.json:
+            translation = request.json['translation']
+        else:
+            translation = 'en-hilali'
+
+        result = getResultMultiprocess(pool, value, translation)
     except Exception:
         print traceback.format_exc()
         abort(500)
@@ -49,6 +74,8 @@ def getAyahTranslations():
             translation = 'en-hilali'
 
         result = getTranslations(ayahs, translation)
+        process = psutil.Process(os.getpid())
+        print(process.memory_info().rss)
     except Exception:
         print traceback.format_exc()
         abort(500)

@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from multiprocessing import Pool
+from multiprocessing.pool import ApplyResult
 
 from Levenshtein import ratio
 import alfanous
@@ -440,6 +442,182 @@ def fullVerseSearch(
         return None
 
 
+def fullVerseSearch1(value, translation):
+    ayahs = alfanous.do({
+        "action": "search",
+        "query": value,
+        "vocalized": False,
+        "word_info": False,
+        "word_derivations": False,
+        "word_vocalizations": False,
+        "aya_theme_info": False,
+        "aya_stat_info": False,
+        "aya_sajda_info": False,
+        "range": 3,
+        "perpage": 3
+    })["search"]["ayas"]
+    if len(ayahs) > 0:
+        levList = []
+        for item in ayahs:
+            matched = getAlfanousArabicAyah(ayahs[item])
+            levList.append(matched)
+        bestMatch = bestLevMatch(value.encode("utf-8"), levList)
+        if bestMatch is not None:
+            matchingAyahList = models.QuranAyah.query.filter(
+                models.QuranAyah.simpleText.contains(
+                    bestMatch.decode("utf-8")
+                )
+            ).all()
+            return matchDbListToResponse(
+                bestMatch.decode("utf-8"), translation, matchingAyahList
+            )
+        else:
+            return None
+    else:
+        return None
+
+
+def fullVerseSearch2(value, translation):
+    spaceAyahs = []
+    spaces = [space.start() for space in re.finditer(' ', value)]
+    for space in spaces:
+        spacedValue = value[:space] + value[(space + 1):]
+        spacedAyahs = alfanous.do({
+            "action": "search",
+            "query": spacedValue,
+            "vocalized": False,
+            "word_info": False,
+            "word_derivations": False,
+            "word_vocalizations": False,
+            "aya_theme_info": False,
+            "aya_stat_info": False,
+            "aya_sajda_info": False,
+            "range": 1,
+            "perpage": 1
+        })["search"]["ayas"]
+        if len(spacedAyahs) > 0:
+            spacedMatched = getAlfanousArabicAyah(spacedAyahs[1])
+            spaceAyahs.append(spacedMatched)
+    if len(spaceAyahs) > 0:
+        mostCommonMatch = mostCommon(
+            value.encode("utf-8"), spaceAyahs, 0.65
+        )
+        if mostCommonMatch:
+            matchingAyahList = models.QuranAyah.query.filter(
+                models.QuranAyah.simpleText.contains(
+                    mostCommonMatch.decode("utf-8")
+                )
+            ).all()
+            return matchDbListToResponse(
+                mostCommonMatch.decode("utf-8"),
+                translation,
+                matchingAyahList
+            )
+        else:
+            return None
+    else:
+        return None
+
+
+def fullVerseSearch3(value, translation):
+    suggestionAyahs = []
+    suggestions = alfanous.do({
+        "action": "suggest",
+        "query": value,
+        "vocalized": False
+    })["suggest"]
+
+    for i in suggestions:
+        for j in suggestions[i]:
+            newValue = value.replace(i, j)
+            newAyahs = alfanous.do({
+                "action": "search",
+                "query": newValue,
+                "vocalized": False,
+                "word_info": False,
+                "word_derivations": False,
+                "word_vocalizations": False,
+                "aya_theme_info": False,
+                "aya_stat_info": False,
+                "aya_sajda_info": False,
+                "range": 1,
+                "perpage": 1
+            })["search"]["ayas"]
+            if len(newAyahs) > 0:
+                newMatched = getAlfanousArabicAyah(newAyahs[1])
+                suggestionAyahs.append(newMatched)
+    if len(suggestionAyahs) > 0:
+        mostCommonMatch = mostCommon(
+            value.encode("utf-8"), suggestionAyahs, 0.65
+        )
+        if mostCommonMatch:
+            matchingAyahList = models.QuranAyah.query.filter(
+                models.QuranAyah.simpleText.contains(
+                    mostCommonMatch.decode("utf-8")
+                )
+            ).all()
+            return matchDbListToResponse(
+                mostCommonMatch.decode("utf-8"),
+                translation,
+                matchingAyahList
+            )
+        else:
+            return None
+    else:
+        return None
+
+
+def fullVerseSearch4(value, translation):
+    if len(value) < 30:
+        print "\nNo matches. Trying spaces and suggestions."
+        ssAyahs = []
+        for i in suggestions:
+            for j in suggestions[i]:
+                newValue = value.replace(i, j)
+                spaces = [
+                    space.start() for space in re.finditer(' ', newValue)
+                ]
+                for space in spaces:
+                    ssValue = newValue[:space] + newValue[(space + 1):]
+                    newAyahs = alfanous.do({
+                        "action": "search",
+                        "query": ssValue,
+                        "vocalized": False,
+                        "word_info": False,
+                        "word_derivations": False,
+                        "word_vocalizations": False,
+                        "aya_theme_info": False,
+                        "aya_stat_info": False,
+                        "aya_sajda_info": False,
+                        "range": 1,
+                        "perpage": 1
+                    })["search"]["ayas"]
+                    if len(newAyahs) > 0:
+                        ssMatched = getAlfanousArabicAyah(newAyahs[1])
+                        ssAyahs.append(ssMatched)
+        if len(ssAyahs) > 0:
+            mostCommonMatch = mostCommon(
+                value.encode("utf-8"), ssAyahs, 0.65
+            )
+            if mostCommonMatch is not None:
+                matchingAyahList = models.QuranAyah.query.filter(
+                    models.QuranAyah.simpleText.contains(
+                        mostCommonMatch.decode("utf-8")
+                    )
+                ).all()
+                return matchDbListToResponse(
+                    mostCommonMatch.decode("utf-8"),
+                    translation,
+                    matchingAyahList
+                )
+            else:
+                return None
+        else:
+            return None
+    else:
+        return None
+
+
 # Takes in a partial ayah query and handles passing it off to functions to
 # find a match in the Quran
 # Returns the response object if there is a match, otherwise returns None
@@ -489,6 +667,70 @@ def getResult(value, requestedTranslation):
     else:
         print "\nFound a special case"
         return specialCasesSearchResult
+
+
+# The main entry point for version 3 of the api
+# Takes in a query and filters it through different searches until a match is
+# found
+# Returns a response object containing the query, all matches, and their
+# details
+def getResultMultiprocess(pool, value, requestedTranslation):
+    global translation
+    translation = requestedTranslation
+    # * and ? have special meaning in alfanous, and so need to be removed
+    value = value.replace("*", "")
+    value = value.replace("?", "")
+
+    specialCasesSearchApply = pool.apply_async(specialCasesSearch, (value, translation))
+    oneWordApply= pool.apply_async(searchOneWord, (value, translation))
+    fullVerseSearch1Apply = pool.apply_async(fullVerseSearch1, (value, translation))
+    fullVerseSearch2Apply = pool.apply_async(fullVerseSearch2, (value, translation))
+    fullVerseSearch3Apply = pool.apply_async(fullVerseSearch3, (value, translation))
+    fullVerseSearch4Apply = pool.apply_async(fullVerseSearch4, (value, translation))
+    exactPartialVerseSearchApply = pool.apply_async(exactPartialVerseSearch, (value, translation))
+
+    specialCasesSearchResult = specialCasesSearchApply.get()
+    if specialCasesSearchResult:
+        fullVerseSearch1Apply
+        return specialCasesSearchResult
+
+    oneWordResult = oneWordApply.get()
+    if oneWordResult:
+        return oneWordResult
+
+    fullVerseSearch1Result = fullVerseSearch1Apply.get()
+    if fullVerseSearch1Result:
+        return fullVerseSearch1Result
+
+    fullVerseSearch2Result = fullVerseSearch2Apply.get()
+    if fullVerseSearch2Result:
+        return fullVerseSearch2Result
+
+    fullVerseSearch3Result = fullVerseSearch3Apply.get()
+    if fullVerseSearch3Result:
+        return fullVerseSearch3Result
+
+    fullVerseSearch4Result = fullVerseSearch4Apply.get()
+    if fullVerseSearch4Result:
+        return fullVerseSearch4Result
+
+    exactPartialVerseSearchResult = exactPartialVerseSearchApply.get()
+    if exactPartialVerseSearchResult:
+        return exactPartialVerseSearchResult
+
+    return returnEmptyResponse(value)
+
+
+def searchOneWord(value, translation):
+    print("searchOneWord")
+    if len(value.split()) == 1:
+        matchedWord = checkForWordInQuran(value)
+        if matchedWord is None:
+            return None
+        else:
+            return findSingleWordMatches(matchedWord, translation)
+    else:
+        return None
 
 
 def getTranslations(ayahs, translation):

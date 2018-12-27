@@ -21,3 +21,4 @@ sqlalchemy-migrate==0.10.0
 sqlparse==0.1.19
 Tempita==0.5.2
 Werkzeug==0.10.4
+psutil
