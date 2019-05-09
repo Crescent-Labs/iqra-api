@@ -3,7 +3,6 @@ blinker==1.4
 decorator==4.0.9
 flake8==2.5.4
 Flask==0.10.1
-Flask-SQLAlchemy==2.1
 gunicorn==19.3.0
 itsdangerous==0.24
 Jinja2==2.8
@@ -21,3 +20,4 @@ sqlalchemy-migrate==0.10.0
 sqlparse==0.1.19
 Tempita==0.5.2
 Werkzeug==0.10.4
+Whoosh==2.7.4

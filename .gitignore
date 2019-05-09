@@ -91,3 +91,5 @@ ENV/
 # Project-specific stuff
 app.db
 dbRepository/
+whooshdir/
+.vscode

@@ -1,16 +1,13 @@
 #!/usr/bin/env python
 from flask import Flask, jsonify, abort, make_response, request
-from flask.ext.sqlalchemy import SQLAlchemy
+from whoosh.index import open_dir
 import os
 import traceback
+from api import getResult, getTranslations
 
 
 app = Flask(__name__)
-app.config.from_object('config')
-db = SQLAlchemy(app)
-
-
-from api import *
+ix = open_dir("whooshdir")
 
 
 def root_dir():
@@ -29,7 +26,7 @@ def getSearchResult():
         else:
             translation = 'en-hilali'
 
-        result = getResult(value, translation)
+        result = getResult(value, translation, ix)
     except Exception:
         print traceback.format_exc()
         abort(500)
