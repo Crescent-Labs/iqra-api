@@ -9,11 +9,9 @@ First install dependencies:
 pip install -r .\requirements.txt
 ```
 
-Then setup sqlite and load its contents:
+Then create the Whoosh index:
 ```
-python dbCreate.py
-python dbMigrate.py
-python seed.py
+python createIndex.py
 ```
 
 Finally, run the flask server:
