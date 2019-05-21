@@ -45,40 +45,19 @@ def getMatchesFromResults(results, translation):
     return sorted(finalMatches, key=itemgetter('surahNum', 'ayahNum'))
 
 
-# Takes in a query and compares it to hard-coded special cases
-# Returns a list of ayah matches if there is a match, otherwise returns None
+# Takes in a query and adjusts it based on hard-coded special cases
+# Returns a new query with the special cases replaced
 # The special cases are for the "Miracle Letters"
-def getSpecialCasesResults(value, translation, ix):
-    matchingAyahList = []
+def adjustForSpecialCases(value):
     for case in SPECIAL_CASES:
-        if case[0] == value:
-            value = case[1]
-            matchingAyahList = case[2]
+        if case[0] in value:
+            value = value.replace(case[0], case[1])
 
-    if len(matchingAyahList) > 0:
-        allowedResults = []
-        for matchingAyah in matchingAyahList:
-            allowedResults.append("surah_num:" + str(matchingAyah[0]) + " AND ayah_num:" + str(matchingAyah[1]))
-        parser = MultifieldParser(["surah_num", "ayah_num"], ix.schema)
-        parser.remove_plugin_class(PhrasePlugin)
-        parser.add_plugin(SequencePlugin())
-        query = parser.parse(" OR ".join(allowedResults))
-        with ix.searcher() as searcher:
-            results = searcher.search(query, limit=7)
-            return getResponseObjectFromParams(
-                value,
-                getMatchesFromResults(results, translation),
-                [],
-                []
-            )
-    else:
-        return None
+    return value
 
 
-def getResult(value, translation, ix):
-    specialCasesResults = getSpecialCasesResults(value, translation, ix)
-    if specialCasesResults:
-        return specialCasesResults
+def getResult(rawValue, translation, ix):
+    value = adjustForSpecialCases(rawValue)
 
     with ix.searcher() as searcher:
         isSingleWordQuery = False
